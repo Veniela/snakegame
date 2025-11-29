@@ -1,133 +1,90 @@
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const playBoard = document.querySelector(".play-board");
+const scoreElement = document.querySelector(".score");
+const highScoreElement = document.querySelector(".high-score");
+const controls = document.querySelectorAll(".controls i");
 
-// Розмір клітинки
-let size = 25;
 
-// Фіксоване поле 600×600
-canvas.width = 600;
-canvas.height = 600;
+let gameOver = false;
+let foodX, foodY;
+let snakeX = 5, snakeY = 5;
+let velocityX = 0, velocityY = 0;
+let snakeBody = [];
+let setIntervalId;
+let score = 0;
 
-let snake = [{ x: snap(canvas.width / 2), y: snap(canvas.height / 2) }];
-let dx = size;
-let dy = 0;
 
-let food = randomFood();
+// Getting high score from the local storage
+let highScore = localStorage.getItem("high-score") || 0;
+highScoreElement.innerText = `High Score: ${highScore}`;
 
-let lastTime = 0;
-let speed = 6;
-let paused = false;
+const updateFoodPosition = () => {
+    // Passing a random 1 - 30 value as food position
+    foodX = Math.floor(Math.random() * 30) + 1;
+    foodY = Math.floor(Math.random() * 30) + 1;
+}
+const handleGameOver = () => {
+    // Clearing the timer and reloading the page on game over
+    clearInterval(setIntervalId);
+    alert("Game Over! Press OK to replay...");
+    location.reload();
+}
+const changeDirection = e => {
+    // Changing velocity value based on key press
+    if(e.key === "ArrowUp" && velocityY != 1) {
+        velocityX = 0;
+        velocityY = -1;
+    } else if(e.key === "ArrowDown" && velocityY != -1) {
+        velocityX = 0;
+        velocityY = 1;
+    } else if(e.key === "ArrowLeft" && velocityX != 1) {
+        velocityX = -1;
+        velocityY = 0;
+    } else if(e.key === "ArrowRight" && velocityX != -1) {
+        velocityX = 1;
+        velocityY = 0;
+    }
+}
 
-document.addEventListener("keydown", handleKeys);
 
-function gameLoop(timestamp) {
-    if (!paused && timestamp - lastTime > 1000 / speed) {
-        lastTime = timestamp;
-
-        moveSnake();
-
-        if (checkDeath()) {
-            alert("Game Over");
-            document.location.reload();
-            return;
+// Calling changeDirection on each key click and passing key dataset value as an object
+controls.forEach(button => button.addEventListener("click", () => changeDirection({ key: button.dataset.key })));
+const initGame = () => {
+    if(gameOver) return handleGameOver();
+    let html = `<div class="food" style="grid-area: ${foodY} / ${foodX}"></div>`;
+    
+    // Checking if the snake hit the food
+    if(snakeX === foodX && snakeY === foodY) {
+        updateFoodPosition();
+        snakeBody.push([foodY, foodX]); // Pushing food position to snake body array
+        score++; // increment score by 1
+        highScore = score >= highScore ? score : highScore;
+        localStorage.setItem("high-score", highScore);
+        scoreElement.innerText = `Score: ${score}`;
+        highScoreElement.innerText = `High Score: ${highScore}`;
+    }
+    // Updating the snake's head position based on the current velocity
+    snakeX += velocityX;
+    snakeY += velocityY;
+    
+    // Shifting forward the values of the elements in the snake body by one
+    for (let i = snakeBody.length - 1; i > 0; i--) {
+        snakeBody[i] = snakeBody[i - 1];
+    }
+    snakeBody[0] = [snakeX, snakeY]; // Setting first element of snake body to current snake position
+    // Checking if the snake's head is out of wall, if so setting gameOver to true
+    if(snakeX <= 0 || snakeX > 30 || snakeY <= 0 || snakeY > 30) {
+        return gameOver = true;
+    }
+    for (let i = 0; i < snakeBody.length; i++) {
+        // Adding a div for each part of the snake's body
+        html += `<div class="head" style="grid-area: ${snakeBody[i][1]} / ${snakeBody[i][0]}"></div>`;
+        // Checking if the snake head hit the body, if so set gameOver to true
+        if (i !== 0 && snakeBody[0][1] === snakeBody[i][1] && snakeBody[0][0] === snakeBody[i][0]) {
+            gameOver = true;
         }
-
-        if (eatFood()) {
-            food = randomFood(); // зʼїли → ростемо
-        } else {
-            snake.pop();
-        }
-
-        draw();
     }
-
-    requestAnimationFrame(gameLoop);
+    playBoard.innerHTML = html;
 }
-
-requestAnimationFrame(gameLoop);
-
-// --- Малювання ---
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // рамка
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
-    // їжа
-    ctx.fillStyle = "#d11";
-    ctx.fillRect(food.x, food.y, size, size);
-
-    // змійка
-    ctx.fillStyle = "#2b7a0b";
-    snake.forEach(p => ctx.fillRect(p.x, p.y, size, size));
-
-    // пауза
-    if (paused) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#fff";
-        ctx.font = "40px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("PAUSE", canvas.width / 2, canvas.height / 2);
-    }
-}
-
-// --- Логіка ---
-function moveSnake() {
-    const head = {
-        x: snake[0].x + dx,
-        y: snake[0].y + dy
-    };
-    snake.unshift(head);
-}
-
-function handleKeys(e) {
-    const k = e.key;
-
-    if (k === " ") { // пауза
-        paused = !paused;
-        return;
-    }
-
-    if (paused) return;
-
-    if (k === "ArrowUp" && dy === 0) { dx = 0; dy = -size; }
-    if (k === "ArrowDown" && dy === 0) { dx = 0; dy = size; }
-    if (k === "ArrowLeft" && dx === 0) { dx = -size; dy = 0; }
-    if (k === "ArrowRight" && dx === 0) { dx = size; dy = 0; }
-}
-
-function eatFood() {
-    return snake[0].x === food.x && snake[0].y === food.y;
-}
-
-function randomFood() {
-    const cellsX = canvas.width / size;
-    const cellsY = canvas.height / size;
-
-    return {
-        x: Math.floor(Math.random() * cellsX) * size,
-        y: Math.floor(Math.random() * cellsY) * size
-    };
-}
-
-function checkDeath() {
-    const h = snake[0];
-
-    if (h.x < 0 || h.x >= canvas.width ||
-        h.y < 0 || h.y >= canvas.height)
-        return true;
-
-    for (let i = 1; i < snake.length; i++) {
-        if (snake[i].x === h.x && snake[i].y === h.y) return true;
-    }
-
-    return false;
-}
-
-// Вирівнювання до сітки
-function snap(v) {
-    return Math.floor(v / size) * size;
-}
+updateFoodPosition();
+setIntervalId = setInterval(initGame, 100);
+document.addEventListener("keyup", changeDirection);

@@ -1,0 +1,28 @@
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #1e1e1e, #333);
+    font-family: Arial, sans-serif;
+}
+
+.wrapper {
+    text-align: center;
+    color: #ff0000;
+}
+
+h1 {
+    margin-bottom: 15px;
+    font-size: 32px;
+    letter-spacing: 2px;
+}
+
+canvas {
+    
+    background: #c709ed;
+    border: 6px solid #111;
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+}
